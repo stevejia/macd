@@ -77,7 +77,7 @@ class Kline extends React.Component<any, any> {
   ];
 
   //1500ms 1.5s
-  private DURATION = 1500;
+  private DURATION = 5000;
 
   state = {
     option: null,
@@ -105,11 +105,13 @@ class Kline extends React.Component<any, any> {
     }
     this.timer = setInterval(async () => {
       const params = { period: periodItem.period };
-      const { data: newKlines } = await api.refreshKline(params);
+      const {
+        data: { klines: newKlines, tdStructures },
+      } = await api.refreshKline(params);
       console.log(newKlines);
-      if (newKlines?.length > 0) {
+      if (newKlines?.length > 0 || tdStructures?.length > 0) {
         this.klineList = this.klineList.concat(newKlines);
-        this.processKlineData(this.klineList);
+        this.processKlineData(this.klineList, tdStructures);
       }
     }, this.DURATION);
   }
@@ -118,14 +120,14 @@ class Kline extends React.Component<any, any> {
     const { checkedIndex } = this.state;
     const periodItem = this.periodList[checkedIndex];
     const params = {
-      period: periodItem.period,
+      period: periodItem.period, 
     };
     const { data: klineList } = await api.queryKline(params);
     this.klineList = klineList;
-    this.processKlineData(klineList);
+    this.processKlineData(klineList, []);
   }
 
-  private processKlineData(klineList: Array<any>) {
+  private processKlineData(klineList: Array<any>, tdStructures: Array<any>) {
     const klineDataList = klineList.map((line) => [
       formatDate(line.klineTime),
       line.openprice,
@@ -134,9 +136,34 @@ class Kline extends React.Component<any, any> {
       line.highestprice,
     ]);
 
+    const tdMarkers = this.processTdStructures(klineList, tdStructures);
     const splitData = this.splitData(klineDataList);
-    const option = this.getOption(splitData);
+    const option = this.getOption(splitData, tdMarkers);
     this.setState({ option });
+  }
+
+  private processTdStructures(klineList: Array<any>, tdStructures: Array<any>) {
+    const tdMarkers: Array<any> = [];
+    tdStructures.forEach((td) => {
+      const klineTimes = td.klineTimes;
+      const klineTimeList = klineTimes.split(",");
+      klineTimeList.forEach((kt: any, index: number) => {
+        const kline = klineList.find((kl) => kl.klineTime === kt);
+        if (kline) {
+          const marker = {
+            name: "TD结构",
+            coord: [formatDate(kt), kline.highestprice],
+            value: index + 1,
+            symbolSize: 0,
+            itemStyle: {
+              color: "red",
+            },
+          };
+          tdMarkers.push(marker);
+        }
+      });
+    });
+    return tdMarkers;
   }
 
   componentWillUnmount() {
@@ -165,7 +192,7 @@ class Kline extends React.Component<any, any> {
     };
   }
 
-  getOption(data0: any) {
+  getOption(data0: any, tdMarkers: Array<any>) {
     const option = {
       // title: {
       //   text: "上证指数",
@@ -229,16 +256,7 @@ class Kline extends React.Component<any, any> {
                 },
               },
             },
-            data: [
-              {
-                name: "XX标点",
-                coord: ["2013/5/31", 2300],
-                value: 2300,
-                itemStyle: {
-                  color: "rgb(41,60,85)",
-                },
-              },
-            ],
+            data: tdMarkers,
             tooltip: {
               formatter: function (param: any) {
                 return param.name + "<br>" + (param.data.coord || "");
