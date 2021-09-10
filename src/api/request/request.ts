@@ -17,7 +17,7 @@ async function get(
   try {
     let res = await axios.get(`${path}`, { params });
     return res.data;
-  } catch (error) {
+  } catch (error: any) {
     if (error.response) {
       showStateError(error.response);
     } else if (error.status) {
@@ -59,7 +59,7 @@ async function post(
       },
     });
     return res.data;
-  } catch (error) {
+  } catch (error: any) {
     if (error.response) {
       showStateError(error.response);
     }

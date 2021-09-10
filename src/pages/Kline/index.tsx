@@ -10,6 +10,7 @@ import CheckableTag from "antd/lib/tag/CheckableTag";
 
 import "./index.less";
 import { Modal } from "antd";
+import WebSocketClient from "../../utils/websocket";
 class Kline extends React.Component<any, any> {
   private keydownBindThis: any = null;
   private timer: any = null;
@@ -95,6 +96,15 @@ class Kline extends React.Component<any, any> {
 
     this.queryKline();
     this.refreshKline();
+
+    this.initWebsocket();
+  }
+
+  private initWebsocket() {
+    // const client: WebSocketClient = (window as any).client;
+    // client?.addMessageEvent("OPEN_POSITION_MESSAGE", (data: any) =>
+    //   console.log(data)
+    // );
   }
 
   private refreshKline() {
@@ -122,7 +132,7 @@ class Kline extends React.Component<any, any> {
     const { checkedIndex } = this.state;
     const periodItem = this.periodList[checkedIndex];
     const params = {
-      period: periodItem.period, 
+      period: periodItem.period,
     };
     const { data: klineList } = await api.queryKline(params);
     this.klineList = klineList;
@@ -138,7 +148,10 @@ class Kline extends React.Component<any, any> {
       line.highestprice,
     ]);
 
-    const {tdMarkers, tdMarkLines} = this.processTdStructures(klineList, tdStructures);
+    const { tdMarkers, tdMarkLines } = this.processTdStructures(
+      klineList,
+      tdStructures
+    );
     const splitData = this.splitData(klineDataList);
     const option = this.getOption(splitData, tdMarkers, tdMarkLines);
     this.setState({ option });
@@ -152,22 +165,19 @@ class Kline extends React.Component<any, any> {
       const klineTimes = td.klineTimes;
       const klineTimeList = klineTimes.split(",");
       const price = td.reversal ? td.supportPrice : td.pressurePrice;
-      if(td.structureComplete){
+      if (td.structureComplete) {
         const line = [
           {
-             coord: [formatDate(klineTimeList[0]), price],
-             
+            coord: [formatDate(klineTimeList[0]), price],
           },
-           
-         
+
           {
-             coord: [formatDate(klineTimeList[klineTimeList.length - 1]), price],
-             
+            coord: [formatDate(klineTimeList[klineTimeList.length - 1]), price],
           },
-      ]
-      tdMarkLines.push(line);
+        ];
+        tdMarkLines.push(line);
       }
-      
+
       klineTimeList.forEach((kt: any, index: number) => {
         const kline = klineList.find((kl) => kl.klineTime === kt);
         if (kline) {
@@ -183,9 +193,8 @@ class Kline extends React.Component<any, any> {
           tdMarkers.push(marker);
         }
       });
-
     });
-    return {tdMarkers, tdMarkLines};
+    return { tdMarkers, tdMarkLines };
   }
 
   componentWillUnmount() {
@@ -198,7 +207,7 @@ class Kline extends React.Component<any, any> {
    */
   private onKeyDown(e: any) {
     console.log(3);
-    this.setState({modalVisible: true});
+    this.setState({ modalVisible: true });
     return;
   }
 
@@ -209,9 +218,9 @@ class Kline extends React.Component<any, any> {
     let max = Number.MIN_VALUE;
     for (var i = 0; i < rawData.length; i++) {
       const data = rawData[i].splice(0, 1)[0];
-      
+
       categoryData.push(data);
-      
+
       values.push(rawData[i]);
       min = Math.min(min, ...rawData[i]);
       max = Math.max(max, ...rawData[i]);
@@ -220,13 +229,13 @@ class Kline extends React.Component<any, any> {
       categoryData: categoryData,
       values: values,
       min,
-      max
+      max,
     };
   }
 
   getOption(data0: any, tdMarkers: Array<any>, tdMarkLines: Array<any>) {
     console.log(tdMarkLines);
-    
+
     const option = {
       // title: {
       //   text: "上证指数",
@@ -263,8 +272,8 @@ class Kline extends React.Component<any, any> {
         splitArea: {
           show: true,
         },
-        min: 'dataMin',
-        max: 'dataMax'
+        min: "dataMin",
+        max: "dataMax",
       },
       dataZoom: [
         {
@@ -299,9 +308,8 @@ class Kline extends React.Component<any, any> {
               },
             },
           },
-          markLine: {symbol: ['none', 'none'],data: tdMarkLines}
+          markLine: { symbol: ["none", "none"], data: tdMarkLines },
         },
-        
       ],
     };
     return option;
@@ -329,8 +337,8 @@ class Kline extends React.Component<any, any> {
     }
   }
 
-  private onOk(){
-    this.setState({modalVisible: false});
+  private onOk() {
+    this.setState({ modalVisible: false });
   }
 
   render() {
@@ -359,9 +367,18 @@ class Kline extends React.Component<any, any> {
             option={option}
           ></ReactEcharts>
         </div>
-        {modalVisible && <Modal title="选择合约" okText="确定" cancelText="取消" onOk={()=> this.onOk()} onCancel={()=>this.setState({modalVisible: false})} visible={modalVisible}>
-          3333
-        </Modal>}
+        {modalVisible && (
+          <Modal
+            title="选择合约"
+            okText="确定"
+            cancelText="取消"
+            onOk={() => this.onOk()}
+            onCancel={() => this.setState({ modalVisible: false })}
+            visible={modalVisible}
+          >
+            3333
+          </Modal>
+        )}
       </div>
     );
   }
