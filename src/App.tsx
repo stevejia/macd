@@ -11,14 +11,15 @@ import WebSocketClient from "./utils/websocket";
 const { Footer, Sider, Content } = Layout;
 
 class App extends React.Component<any, any> {
-  componentDidMount() {
-    new WebSocketClient("33333");
+  constructor(props: any) {
+    super(props);
+    (window as any).client = new WebSocketClient("33333");
   }
+
   render() {
     return (
       <Layout className="container-wrapper">
         <Layout>
-          <Sider>Sider</Sider>
           <Content className="main-content">
             <HashRouter>{renderRoutes(routes)}</HashRouter>
           </Content>

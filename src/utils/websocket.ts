@@ -16,7 +16,10 @@ class WebSocketClient {
       const message = JSON.parse(dataJson);
       const { key, data } = message;
       console.log(key, data);
-      
+      const msgFunc = this.messageEvents[key];
+      if (!!msgFunc) {
+        msgFunc(data);
+      }
     };
   }
 
@@ -30,7 +33,7 @@ class WebSocketClient {
     return baseUrl;
   }
 
-   addMessageEvent(messageKey: string, event: Function) {
+  addMessageEvent(messageKey: string, event: Function) {
     this.messageEvents = this.messageEvents || {};
     this.messageEvents[messageKey] = event;
   }

@@ -9,8 +9,10 @@ import { formatDate } from "../../utils/utils";
 import CheckableTag from "antd/lib/tag/CheckableTag";
 
 import "./index.less";
-import { Modal } from "antd";
+import { Modal, Popover, Tooltip } from "antd";
 import WebSocketClient from "../../utils/websocket";
+import Sider from "antd/lib/layout/Sider";
+import ContextMenu from "./components";
 class Kline extends React.Component<any, any> {
   private keydownBindThis: any = null;
   private timer: any = null;
@@ -85,6 +87,11 @@ class Kline extends React.Component<any, any> {
     option: null,
     checkedIndex: 0,
     modalVisible: false,
+    contextMenuVisible: false,
+    contextMenuLeft: 0,
+    contextMenuTop: 0,
+    optionalList: [],
+    instrumentId: "rb2110",
   };
 
   private klineList = [];
@@ -94,33 +101,55 @@ class Kline extends React.Component<any, any> {
 
     window.addEventListener("keydown", this.keydownBindThis, false);
 
+    // this.queryKline();
+    // this.refreshKline();
+
+    // this.initWebsocket();
+
+    // this.getOptionalList();
+    this.query();
+  }
+
+  private query() {
     this.queryKline();
     this.refreshKline();
 
     this.initWebsocket();
+
+    this.getOptionalList();
+  }
+
+  private getOptionalList() {
+    let value = localStorage.getItem("Optional_LISt") || "[]";
+    value = value || "[]";
+    const optionalList = JSON.parse(value) as Array<string | undefined>;
+    this.setState({ optionalList });
+    return optionalList;
+  }
+
+  private setOptionalList(optionalList: Array<any>) {
+    localStorage.setItem("Optional_LISt", JSON.stringify(optionalList));
   }
 
   private initWebsocket() {
-    // const client: WebSocketClient = (window as any).client;
-    // client?.addMessageEvent("OPEN_POSITION_MESSAGE", (data: any) =>
-    //   console.log(data)
-    // );
+    const client: WebSocketClient = (window as any).client;
+    client?.addMessageEvent("OPEN_POSITION_MESSAGE", (data: any) =>
+      console.log(data)
+    );
   }
 
   private refreshKline() {
-    const { checkedIndex } = this.state;
-    const periodItem = this.periodList[checkedIndex];
-
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
     }
     this.timer = setInterval(async () => {
-      const params = { period: periodItem.period };
+      const { checkedIndex } = this.state;
+      const periodItem = this.periodList[checkedIndex];
+      const params = { instrumentid: "rb2110", period: periodItem.period };
       const {
         data: { klines: newKlines, tdStructures },
       } = await api.refreshKline(params);
-      console.log(newKlines);
       if (newKlines?.length > 0 || tdStructures?.length > 0) {
         this.klineList = this.klineList.concat(newKlines);
         this.processKlineData(this.klineList, tdStructures);
@@ -206,7 +235,6 @@ class Kline extends React.Component<any, any> {
    * @param e event
    */
   private onKeyDown(e: any) {
-    console.log(3);
     this.setState({ modalVisible: true });
     return;
   }
@@ -234,8 +262,6 @@ class Kline extends React.Component<any, any> {
   }
 
   getOption(data0: any, tdMarkers: Array<any>, tdMarkLines: Array<any>) {
-    console.log(tdMarkLines);
-
     const option = {
       // title: {
       //   text: "上证指数",
@@ -341,44 +367,114 @@ class Kline extends React.Component<any, any> {
     this.setState({ modalVisible: false });
   }
 
+  private onRightClick(e: React.MouseEvent<HTMLDivElement, MouseEvent>) {
+    const { clientX, clientY } = e;
+    console.log(clientX, clientY);
+    this.setState({
+      contextMenuVisible: true,
+      contextMenuLeft: clientX,
+      contextMenuTop: clientY,
+    });
+  }
+
+  onContextMenuOk(optionalList: Array<any>) {
+    this.setOptionalList(optionalList);
+    console.log(optionalList);
+    this.setState({ optionalList, contextMenuVisible: false });
+  }
+
+  selectInstrument(instrumentId: string) {
+    this.setState({ instrumentId, modalVisible: false }, () => {
+      this.query();
+    });
+  }
+
   render() {
-    const { option, checkedIndex, modalVisible } = this.state;
-    console.log(option);
+    const {
+      option,
+      checkedIndex,
+      modalVisible,
+      contextMenuVisible,
+      contextMenuLeft,
+      contextMenuTop,
+      optionalList,
+      instrumentId,
+    } = this.state;
     if (!option) {
       return null;
     }
     return (
-      <div className="kline-container">
-        <div className="period-container">
-          {this.periodList.map((period, index) => (
-            <CheckableTag
-              key={index}
-              checked={checkedIndex === index}
-              onChange={(checked) => this.onChange(checked, index)}
-            >
-              {period.title}
-            </CheckableTag>
-          ))}
-        </div>
-        <div className="kline-echarts-container">
-          <ReactEcharts
-            className="kline-echarts"
-            style={{ height: "100%" }}
-            option={option}
-          ></ReactEcharts>
-        </div>
-        {modalVisible && (
-          <Modal
-            title="选择合约"
-            okText="确定"
-            cancelText="取消"
-            onOk={() => this.onOk()}
-            onCancel={() => this.setState({ modalVisible: false })}
-            visible={modalVisible}
+      <div className="kline-wrapper">
+        <Sider>
+          <div className="comodity-list-wrapper flex">
+            <div className="title">自选列表</div>
+            <div className="content flex-1">
+              {optionalList?.map((item: any, index: number) => (
+                <div key={index} className="optional-item">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="message-list-wrapper flex">
+            <div className="title">自选列表</div>
+            <div className="content flex-1"></div>
+          </div>
+        </Sider>
+
+        <div className="kline-container flex-1">
+          <div className="period-container">
+            {this.periodList.map((period, index) => (
+              <CheckableTag
+                key={index}
+                checked={checkedIndex === index}
+                onChange={(checked) => this.onChange(checked, index)}
+              >
+                {period.title}
+              </CheckableTag>
+            ))}
+          </div>
+
+          <div
+            onContextMenu={(e) => this.onRightClick(e)}
+            className="kline-echarts-container"
           >
-            3333
-          </Modal>
-        )}
+            <ReactEcharts
+              className="kline-echarts"
+              style={{ height: "100%" }}
+              option={option}
+            ></ReactEcharts>
+          </div>
+          {modalVisible && (
+            <Modal
+              footer={null}
+              title="选择合约"
+              onCancel={() => this.setState({ modalVisible: false })}
+              visible={modalVisible}
+            >
+              <div
+                className="test"
+                onClick={() => this.selectInstrument("rb2110")}
+              >
+                rb2110
+              </div>
+              <div
+                className="test2"
+                onClick={() => this.selectInstrument("fu2109")}
+              >
+                fu2109
+              </div>
+            </Modal>
+          )}
+          <ContextMenu
+            style={{ left: contextMenuLeft, top: contextMenuTop }}
+            instrumentId={instrumentId}
+            optionalList={optionalList}
+            visible={contextMenuVisible}
+            onOk={(optionalList) => this.onContextMenuOk(optionalList)}
+            onCancel={() => this.setState({ contextMenuVisible: false })}
+          ></ContextMenu>
+        </div>
       </div>
     );
   }
