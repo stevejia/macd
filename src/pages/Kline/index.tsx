@@ -1,7 +1,5 @@
 import React from "react";
 
-import echarts from "echarts/lib/echarts";
-
 import * as api from "./services";
 
 import ReactEcharts from "echarts-for-react";
@@ -91,16 +89,19 @@ class Kline extends React.Component<any, any> {
     contextMenuLeft: 0,
     contextMenuTop: 0,
     optionalList: [],
-    instrumentId: "rb2110",
+    instrumentid: "rb2110",
+    dataZoom: {
+      start: null as any,
+      end: null as any,
+    },
   };
 
   private klineList = [];
-
+  private echartsRef = null;
   componentDidMount() {
     this.keydownBindThis = this.onKeyDown.bind(this);
-
+    console.log(this.echartsRef);
     window.addEventListener("keydown", this.keydownBindThis, false);
-
     // this.queryKline();
     // this.refreshKline();
 
@@ -110,8 +111,8 @@ class Kline extends React.Component<any, any> {
     this.query();
   }
 
-  private query() {
-    this.queryKline();
+  private async query() {
+    await this.queryKline();
     this.refreshKline();
 
     this.initWebsocket();
@@ -139,29 +140,43 @@ class Kline extends React.Component<any, any> {
   }
 
   private refreshKline() {
+    this._refreshKline();
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
     }
     this.timer = setInterval(async () => {
-      const { checkedIndex } = this.state;
-      const periodItem = this.periodList[checkedIndex];
-      const params = { instrumentid: "rb2110", period: periodItem.period };
-      const {
-        data: { klines: newKlines, tdStructures },
-      } = await api.refreshKline(params);
-      if (newKlines?.length > 0 || tdStructures?.length > 0) {
-        this.klineList = this.klineList.concat(newKlines);
-        this.processKlineData(this.klineList, tdStructures);
-      }
+      this._refreshKline();
     }, this.DURATION);
   }
 
+  private async _refreshKline() {
+    const { checkedIndex, instrumentid } = this.state;
+    const periodItem = this.periodList[checkedIndex];
+    const params = { instrumentid, period: periodItem.period };
+    const {
+      data: { klines: newKlines, tdStructures },
+    } = await api.refreshKline(params);
+
+    if (newKlines?.length > 0 || tdStructures?.length > 0) {
+      this.klineList = this.klineList.concat(newKlines);
+      const {
+        dataZoom: { end },
+      } = this.state;
+
+      if (end < 100) {
+        return;
+      }
+      this.processKlineData(this.klineList, tdStructures);
+    }
+  }
+
   private async queryKline() {
-    const { checkedIndex } = this.state;
+    const { checkedIndex, instrumentid } = this.state;
     const periodItem = this.periodList[checkedIndex];
     const params = {
       period: periodItem.period,
+      instrumentid,
     };
     const { data: klineList } = await api.queryKline(params);
     this.klineList = klineList;
@@ -261,7 +276,38 @@ class Kline extends React.Component<any, any> {
     };
   }
 
+  private getVisibleList(start: number, end: number, data0: any) {
+    const startIndex = Math.floor((data0.categoryData.length / 100) * start);
+    const endIndex = Math.ceil((data0.categoryData.length / 100) * end + 1);
+    const visibleKline = {
+      categoryData: data0.categoryData.slice(startIndex, endIndex),
+      values: data0.values.slice(startIndex, endIndex),
+    };
+    return visibleKline;
+  }
+
   getOption(data0: any, tdMarkers: Array<any>, tdMarkLines: Array<any>) {
+    let {
+      dataZoom: { start, end },
+    } = this.state;
+
+    // let count = 120;
+    // let visibleKlineData = { categoryData: [], values: [] };
+    if (start === null || end === null) {
+      end = 100;
+      start = this.getPercent();
+      // visibleKlineData.categoryData = data0.categoryData.slice(
+      //   data0.categoryData.length - count,
+      //   data0.categoryData.length
+      // );
+      // visibleKlineData.values = data0.values.slice(
+      //   data0.values.length - count,
+      //   data0.values.length
+      // );
+    } else {
+      // visibleKlineData = this.getVisibleList(start, end, data0);
+    }
+
     const option = {
       // title: {
       //   text: "上证指数",
@@ -304,8 +350,8 @@ class Kline extends React.Component<any, any> {
       dataZoom: [
         {
           type: "inside",
-          start: this.getPercent(),
-          end: 100,
+          start,
+          end,
         },
       ],
       series: [
@@ -383,9 +429,25 @@ class Kline extends React.Component<any, any> {
     this.setState({ optionalList, contextMenuVisible: false });
   }
 
-  selectInstrument(instrumentId: string) {
-    this.setState({ instrumentId, modalVisible: false }, () => {
+  selectInstrument(instrumentid: string) {
+    this.setState({ instrumentid, modalVisible: false }, () => {
       this.query();
+    });
+  }
+
+  onChartReady(instance: any) {
+    console.log(instance);
+    instance.on("datazoom", (event: any) => {
+      console.log(event);
+      const batch = event.batch[0];
+      const start = batch.start;
+      const end = batch.end;
+      this.setState({
+        dataZoom: {
+          start,
+          end,
+        },
+      });
     });
   }
 
@@ -398,7 +460,7 @@ class Kline extends React.Component<any, any> {
       contextMenuLeft,
       contextMenuTop,
       optionalList,
-      instrumentId,
+      instrumentid,
     } = this.state;
     if (!option) {
       return null;
@@ -440,6 +502,7 @@ class Kline extends React.Component<any, any> {
             className="kline-echarts-container"
           >
             <ReactEcharts
+              onChartReady={(instance) => this.onChartReady(instance)}
               className="kline-echarts"
               style={{ height: "100%" }}
               option={option}
@@ -468,7 +531,7 @@ class Kline extends React.Component<any, any> {
           )}
           <ContextMenu
             style={{ left: contextMenuLeft, top: contextMenuTop }}
-            instrumentId={instrumentId}
+            instrumentId={instrumentid}
             optionalList={optionalList}
             visible={contextMenuVisible}
             onOk={(optionalList) => this.onContextMenuOk(optionalList)}
