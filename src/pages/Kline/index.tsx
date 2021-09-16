@@ -7,7 +7,7 @@ import { formatDate } from "../../utils/utils";
 import CheckableTag from "antd/lib/tag/CheckableTag";
 
 import "./index.less";
-import { Modal, Popover, Tooltip } from "antd";
+import { Modal, Popover, Tag, Tooltip } from "antd";
 import WebSocketClient from "../../utils/websocket";
 import Sider from "antd/lib/layout/Sider";
 import ContextMenu from "./components";
@@ -94,6 +94,7 @@ class Kline extends React.Component<any, any> {
       start: null as any,
       end: null as any,
     },
+    contracts: [],
   };
 
   private klineList = [];
@@ -109,6 +110,7 @@ class Kline extends React.Component<any, any> {
 
     // this.getOptionalList();
     this.query();
+    this.queryContract();
   }
 
   private async query() {
@@ -118,6 +120,11 @@ class Kline extends React.Component<any, any> {
     this.initWebsocket();
 
     this.getOptionalList();
+  }
+
+  private async queryContract() {
+    const { data: contracts } = await api.queryContract();
+    this.setState({ contracts });
   }
 
   private getOptionalList() {
@@ -291,8 +298,8 @@ class Kline extends React.Component<any, any> {
       dataZoom: { start, end },
     } = this.state;
 
-    // let count = 120;
-    // let visibleKlineData = { categoryData: [], values: [] };
+    let count = 120;
+    let visibleKlineData = { categoryData: [], values: [] };
     if (start === null || end === null) {
       end = 100;
       start = this.getPercent();
@@ -338,14 +345,13 @@ class Kline extends React.Component<any, any> {
         splitNumber: 20,
         min: "dataMin",
         max: "dataMax",
+        offset: 20,
       },
       yAxis: {
         scale: true,
         splitArea: {
           show: true,
         },
-        min: "dataMin",
-        max: "dataMax",
       },
       dataZoom: [
         {
@@ -461,6 +467,7 @@ class Kline extends React.Component<any, any> {
       contextMenuTop,
       optionalList,
       instrumentid,
+      contracts,
     } = this.state;
     if (!option) {
       return null;
@@ -515,18 +522,16 @@ class Kline extends React.Component<any, any> {
               onCancel={() => this.setState({ modalVisible: false })}
               visible={modalVisible}
             >
-              <div
-                className="test"
-                onClick={() => this.selectInstrument("rb2110")}
-              >
-                rb2110
-              </div>
-              <div
-                className="test2"
-                onClick={() => this.selectInstrument("fu2109")}
-              >
-                fu2109
-              </div>
+              {contracts?.map((contract: any) => (
+                <Tag
+                  className="m-b-sm"
+                  style={{marginBottom: 10}}
+                  color="green"
+                  onClick={() => this.selectInstrument(contract.instrumentid)}
+                >
+                  {contract.instrumentname}({contract.instrumentid})
+                </Tag>
+              ))}
             </Modal>
           )}
           <ContextMenu
